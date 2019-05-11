@@ -46,6 +46,8 @@
 <http://www.gevent.org>`_ 使用轻量级线程的系统性能虽然堪比异步系统,但它们并
 没有真正的让事情异步).
 
+除了一些类似于 `.IOLoop` 的低级组件使用回调函数外, Tornadoz中的异步操作通常返回占位符对象 (``Futures``). ``Futures`` 通常使用 ``await`` 或 ``yield`` 关键字转换为结果。
+
 例子
 ~~~~~~~~
 
@@ -119,3 +121,19 @@
 抛出一种特殊的叫 `.Return` 的异常. 协程捕获这个异常并把它作为返回值.
 在Python 3.3和更高版本,使用 ``return
 response.body`` 有相同的结果.
+
+在Python3.5后,这里可以使用原生的协程特性重写相同的函数:
+
+.. testcode::
+
+    from tornado.httpclient import AsyncHTTPClient
+
+    async def asynchronous_fetch(url):
+        http_client = AsyncHTTPClient()
+        response = await http_client.fetch(url)
+        return response.body
+
+.. testoutput::
+   :hide:
+
+您可以通过传递回调对象来执行协同程序所能做的任何事情，但协同程序通过让您以与同步方式相同的方式组织代码来提供重要的简化。这对于错误处理尤为重要，因为 ``try`` / ``except`` 块的工作方式与协程中的预期相同，而回调很难实现。协程将在本指南的下一部分中进行深入讨论。

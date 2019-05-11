@@ -5,7 +5,7 @@
 起初由 `FriendFeed
 <http://friendfeed.com>`_ 开发. 通过使用非阻塞网络I/O, Tornado
 可以支持上万级的连接，处理
-`长连接 <http://en.wikipedia.org/wiki/Push_technology#Long_polling>`_,
+`长轮询 (long polling) <http://en.wikipedia.org/wiki/Push_technology#Long_polling>`_,
 `WebSockets <http://en.wikipedia.org/wiki/WebSocket>`_, 和其他 
 需要与每个用户保持长久连接的应用.
 
@@ -16,7 +16,7 @@ Tornado 大体上可以被分为4个主要的部分:
   `.AsyncHTTPClient`).
 * 异步网络库 (`.IOLoop` and `.IOStream`),
   为HTTP组件提供构建模块，也可以用来实现其他协议.
-* 协程库 (`tornado.gen`) 允许异步代码写的更直接而不用链式回调的方式.
+* 协程库 (`tornado.gen`) 允许异步代码写的更直接而不用链式回调的方式.这类似于Python3.5中引入的原生协程特性 ``async def`` .如果条件允许，建议使用次原生的协程代替模块协程库 (`tornado.gen`) 
 
 Tornado web 框架和HTTP server 一起为
 `WSGI <http://www.python.org/dev/peps/pep-3333/>`_ 提供了一个全栈式的选择.

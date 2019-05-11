@@ -89,6 +89,10 @@ Tornado 的协程执行者(coroutine runner)在设计上是多用途的,可以�
     def divide(x, y):
         return x / y
 
+    # 在Python3.5后:
+    # async def divide(x, y):
+    #   return x / y
+
     def bad_call():
         # 这里应该抛出一个 ZeroDivisionError 的异常, 但事实上并没有
         # 因为协程的调用方式是错误的.
@@ -103,6 +107,11 @@ Tornado 的协程执行者(coroutine runner)在设计上是多用途的,可以�
     def good_call():
         # yield 将会解开 divide() 返回的 Future 并且抛出异常
         yield divide(1, 0)
+    
+    # 在Python3.5后:
+    # async def good_call():
+    #    # yield 将会解开 divide() 返回的 Future 并且抛出异常
+    #    await divide(1, 0)
 
 有时你可能想要对一个协程"一劳永逸"而且不等待它的结果. 在这种情况下,
 建议使用 `.IOLoop.spawn_callback`, 它使得 `.IOLoop` 负责调用. 如果
@@ -112,6 +121,8 @@ Tornado 的协程执行者(coroutine runner)在设计上是多用途的,可以�
     # 注意这不像是一个正常的调用, 因为我们是通过
     # IOLoop 调用的这个函数.
     IOLoop.current().spawn_callback(divide, 1, 0)
+
+对于使用 ``@gen.coroutine`` 的函数，建议以这种方式使用 `.IOLoop.spawn_callback` ，但是对于使用 `async def` 的函数来说是必要的（否则协程运行器将无法启动）。
 
 最后, 在程序顶层, *如果 `.IOLoop` 尚未运行,* 你可以启动 `.IOLoop`,
 执行协程,然后使用 `.IOLoop.run_sync` 方法停止 `.IOLoop` . 这通常被
@@ -144,15 +155,22 @@ Tornado 的协程执行者(coroutine runner)在设计上是多用途的,可以�
 调用阻塞函数
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-从协程调用阻塞函数最简单的方式是使用
-`~concurrent.futures.ThreadPoolExecutor`, 它将返回和协程兼容的 
-``Futures`` ::
+从协程调用阻塞函数最简单的方式是使用 `~concurrent.futures.ThreadPoolExecutor` （Python3.5后推荐使用 `.IOLoop.run_in_executor` ）, 它将返回和协程兼容的 ``Futures`` :
+
+.. testcode::
 
     thread_pool = ThreadPoolExecutor(4)
 
     @gen.coroutine
     def call_blocking():
         yield thread_pool.submit(blocking_func, args)
+       
+    # Python3.5之后:
+    # async def call_blocking():
+    #    await IOLoop.current().run_in_executor(None, blocking_func, args)
+
+.. testoutput::
+   :hide:
 
 并行
 ^^^^^^^^^^^
@@ -177,6 +195,20 @@ Tornado 的协程执行者(coroutine runner)在设计上是多用途的,可以�
                             for url in urls}
         # 响应是一个字典 {url: HTTPResponse}
 
+    # Python3.5后:
+    # from tornado.gen import multi
+    # 
+    # async def parallel_fetch(url1, url2):
+    #     resp1, resp2 = await multi([http_client.fetch(url1),
+    #                                 http_client.fetch(url2)])
+    #
+    # async def parallel_fetch_many(urls):
+    #     responses = await multi ([http_client.fetch(url) for url in urls])
+    #
+    # async def parallel_fetch_dict(urls):
+    #     responses = await multi({url: http_client.fetch(url)
+    #                              for url in urls})
+
 .. testoutput::
    :hide:
 
@@ -197,6 +229,20 @@ Tornado 的协程执行者(coroutine runner)在设计上是多用途的,可以�
             self.write(chunk)
             fetch_future = self.fetch_next_chunk()
             yield self.flush()
+
+    # Python3.5后:
+    # from tornado.gen import convert_yielded
+    # 
+    # async def get(self):
+    #     # convert_yielded() 在后台运行原生协程
+    #     # 这相当于 asyncio.ensure_future() (在Tornado两者都可以正常工作).
+    #     fetch_future = convert_yielded(self.fetch_next_chunk())
+    #     while True:
+    #         chunk = yield fetch_future
+    #         if chunk is None: break
+    #         self.write(chunk)
+    #         fetch_future = convert_yielded(self.fetch_next_chunk())
+    #         yield self.flush()
 
 .. testoutput::
    :hide:
@@ -231,8 +277,13 @@ Tornado 的协程执行者(coroutine runner)在设计上是多用途的,可以�
             yield do_something()
             yield gen.sleep(60)
 
-    # Coroutines that loop forever are generally started with
-    # spawn_callback().
+    # Python3.5后:
+    # async def minute_loop():
+    #     while True:
+    #         await do_something()
+    #         await gen.sleep(60)
+
+    # 永远循环的协同程序通常始于spawn_callback().
     IOLoop.current().spawn_callback(minute_loop)
 
 有时可能会遇到一个更复杂的循环. 例如, 上一个循环运行每次花费
@@ -245,3 +296,10 @@ Tornado 的协程执行者(coroutine runner)在设计上是多用途的,可以�
             nxt = gen.sleep(60)   # 开始计时.
             yield do_something()  # 计时后运行.
             yield nxt             # 等待计时结束.
+
+    # Python3.5后:
+    # async def minute_loop2():
+    #     while True:
+    #         nxt = gen.sleep(60)
+    #         await do_something()
+    #         await nxt
